@@ -1,532 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PB - Lease Management Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .table-container {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .table-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        .table-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        .table-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        .table-container::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PB - Lease Management Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-sky-100 to-sky-300 min-h-screen p-6">
+<body class="bg-gray-50 p-6">
+  <h1 class="text-2xl font-bold text-sky-900 mb-4">PB - Lease Management Dashboard</h1>
+  <p class="text-sky-700 mb-6">Fetching sheet data... check your browser console 👇</p>
 
-    <header class="mb-8">
-        <div class="mx-auto max-w-7xl">
-            <h1 class="text-4xl font-bold text-sky-900 mb-2">📊 Lease Management Dashboard</h1>
-            <p class="text-sky-700">Welcome user! • Real-time lease tracking system</p>
-        </div>
-    </header>
+  <script>
+    // API URL (Apps Script Web App endpoint)
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx9BnScZXouEciOLKTy2Qs9FOx7gYvWXTb_XdmZqguehD4sUZmSjFLfsn75rIO9KGLBIQ/exec';
 
-    <div class="mx-auto max-w-7xl">
-        
-        <!-- Loading Indicator -->
-        <div id="loading" class="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div class="flex items-center justify-center mb-4">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-sky-600"></div>
-            </div>
-            <p class="text-gray-700 font-semibold text-lg">Loading dashboard data...</p>
-            <p class="text-gray-500 text-sm mt-2">Fetching lease information from all sheets</p>
-        </div>
+    // Sheets you want to fetch
+    const REQUIRED_SHEETS = ['Actives', 'Verified', 'Contract Signed', 'Approved', 'Pending', 'Terminated'];
 
-        <!-- Error Message -->
-        <div id="error" class="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-lg hidden mb-4">
-            <div class="flex items-center">
-                <svg class="w-6 h-6 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <div>
-                    <p class="text-red-700 font-semibold" id="error-message"></p>
-                    <p class="text-red-600 text-sm mt-1" id="error-details"></p>
-                </div>
-            </div>
-        </div>
+    // Storage for final results
+    let allSheetsData = {};
 
-        <!-- Success Message -->
-        <div id="success" class="bg-green-50 border-l-4 border-green-500 p-6 rounded-lg shadow-lg hidden mb-4">
-            <div class="flex items-center">
-                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <p class="text-green-700 font-semibold" id="success-message"></p>
-            </div>
-        </div>
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🚀 App initialized');
+      fetchAllSheets();
+    });
 
-        <!-- Dashboard Content -->
-        <div id="dashboard" class="hidden">
-            
-            <!-- Refresh Button -->
-            <div class="mb-4 flex justify-end">
-                <button onclick="refreshSheets()" class="bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700 transition">
-                    🔄 Refresh Data
-                </button>
-            </div>
+    // Main function: fetch all sheet data
+    async function fetchAllSheets() {
+      try {
+        console.log('📡 Fetching available sheets...');
+        const sheetListResponse = await fetch(API_URL);
+        const sheetListData = await sheetListResponse.json();
 
-            <!-- Stats Overview -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-green-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">ACTIVES</p>
-                    <p class="text-3xl font-bold text-green-600" id="count-actives">0</p>
-                </div>
+        if (!sheetListData.success) {
+          throw new Error(sheetListData.message || 'Failed to get sheet list');
+        }
 
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-blue-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">VERIFIED</p>
-                    <p class="text-3xl font-bold text-blue-600" id="count-verified">0</p>
-                </div>
+        console.log('✅ Available sheets:', sheetListData.sheetNames);
 
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-purple-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">CONTRACT SIGNED</p>
-                    <p class="text-3xl font-bold text-purple-600" id="count-contract-signed">0</p>
-                </div>
+        // Check missing sheets
+        const missing = REQUIRED_SHEETS.filter(s => !sheetListData.sheetNames.includes(s));
+        if (missing.length) {
+          throw new Error(`Missing sheets: ${missing.join(', ')}`);
+        }
 
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-teal-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">APPROVED</p>
-                    <p class="text-3xl font-bold text-teal-600" id="count-approved">0</p>
-                </div>
+        console.log('✅ All required sheets found, now fetching data...');
 
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-yellow-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">PENDING</p>
-                    <p class="text-3xl font-bold text-yellow-600" id="count-pending">0</p>
-                </div>
+        // Fetch each sheet and structure results
+        for (const sheetName of REQUIRED_SHEETS) {
+          const rawData = await fetchSheetData(sheetName);
 
-                <div class="bg-white rounded-lg shadow-lg p-4 border-l-4 border-red-500">
-                    <p class="text-xs text-gray-600 font-semibold mb-1">TERMINATED</p>
-                    <p class="text-3xl font-bold text-red-600" id="count-terminated">0</p>
-                </div>
+          if (rawData.length > 0) {
+            const headers = rawData[0];
+            const rows = rawData.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
+            allSheetsData[sheetName] = {
+              headers,
+              rows,
+              count: rows.length
+            };
+          } else {
+            allSheetsData[sheetName] = { headers: [], rows: [], count: 0 };
+          }
+        }
 
-            </div>
+        console.log('🎉 All sheets fetched successfully!');
+        console.log('📊 Structured Data:', allSheetsData);
 
-            <!-- Sheet Tables -->
-            <div class="space-y-6">
-                
-                <!-- Actives Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🟢 Active Leases</h2>
-                        <span class="bg-white text-green-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-actives">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-actives" placeholder="Search in Active Leases..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-actives">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+      } catch (err) {
+        console.error('❌ Error fetching sheets:', err.message);
+      }
+    }
 
-                <!-- Verified Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🔵 Verified Leases</h2>
-                        <span class="bg-white text-blue-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-verified">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-verified" placeholder="Search in Verified Leases..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-verified">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Contract Signed Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🟣 Contract Signed</h2>
-                        <span class="bg-white text-purple-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-contract-signed">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-contract-signed" placeholder="Search in Contract Signed..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-contract-signed">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Approved Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-teal-500 to-teal-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🔷 Approved Leases</h2>
-                        <span class="bg-white text-teal-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-approved">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-approved" placeholder="Search in Approved Leases..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-approved">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pending Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🟡 Pending Leases</h2>
-                        <span class="bg-white text-yellow-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-pending">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-pending" placeholder="Search in Pending Leases..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-pending">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Terminated Table -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-red-500 to-red-600 p-4 flex items-center justify-between">
-                        <h2 class="text-xl font-bold text-white">🔴 Terminated Leases</h2>
-                        <span class="bg-white text-red-600 px-3 py-1 rounded-full text-sm font-bold" id="badge-terminated">0</span>
-                    </div>
-                    <div class="p-4">
-                        <input type="text" id="search-terminated" placeholder="Search in Terminated Leases..." 
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4">
-                        <div class="table-container">
-                            <table class="w-full" id="table-terminated">
-                                <thead class="bg-gray-100 sticky top-0"></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <script>
-        // Configuration
-        const API_URL = 'https://script.google.com/macros/s/AKfycbx9BnScZXouEciOLKTy2Qs9FOx7gYvWXTb_XdmZqguehD4sUZmSjFLfsn75rIO9KGLBIQ/exec';
-        const REQUIRED_SHEETS = ['Actives', 'Verified', 'Contract Signed', 'Approved', 'Pending', 'Terminated'];
-        let sheetsCache = {};
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 App initialized');
-            verifyAndFetchSheets();
+    // Fetch single sheet
+    async function fetchSheetData(sheetName) {
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetName })
         });
 
-        // Main function to fetch all sheets
-        async function verifyAndFetchSheets() {
-            showLoading(true);
-            hideError();
-            hideSuccess();
-
-            try {
-                console.log('📡 Fetching sheet names from API...');
-                
-                // First, get all sheet names
-                const response = await fetch(API_URL, {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-
-                console.log('Response status:', response.status);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                console.log('API Response:', result);
-
-                if (!result.success) {
-                    throw new Error(result.message || 'Failed to fetch sheet names');
-                }
-
-                const availableSheets = result.sheetNames;
-                console.log('✅ Available sheets:', availableSheets);
-
-                // Check if all required sheets exist
-                const missingSheets = REQUIRED_SHEETS.filter(sheet => !availableSheets.includes(sheet));
-                
-                if (missingSheets.length > 0) {
-                    throw new Error(`Missing required sheets: ${missingSheets.join(', ')}`);
-                }
-
-                console.log('✅ All required sheets found!');
-
-                // Fetch data from all required sheets
-                for (const sheetName of REQUIRED_SHEETS) {
-                    console.log(`📥 Fetching data from ${sheetName}...`);
-                    const data = await fetchSheetData(sheetName);
-                    
-                    if (data) {
-                        sheetsCache[sheetName] = data;
-                        console.log(`✅ ${sheetName} fetched (${data.length} rows)`);
-                    } else {
-                        console.warn(`⚠️ Failed to fetch ${sheetName}`);
-                    }
-                }
-
-                showLoading(false);
-                console.log('✅ All sheets loaded!');
-                console.log('Cache:', sheetsCache);
-
-                // Initialize the dashboard
-                initializeDashboard();
-
-                showSuccess('All sheets loaded successfully!');
-
-            } catch (error) {
-                showLoading(false);
-                showError('Error loading data', error.message);
-                console.error('❌ Error:', error);
-            }
+        const json = await res.json();
+        if (!json.success) {
+          console.error(`⚠️ Failed to fetch ${sheetName}:`, json.error);
+          return [];
         }
-
-        // Fetch data from a specific sheet
-        async function fetchSheetData(sheetName) {
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ sheetName: sheetName })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    return data.data;
-                } else {
-                    console.error(`Failed to fetch ${sheetName}:`, data.error);
-                    return null;
-                }
-
-            } catch (error) {
-                console.error(`Error fetching ${sheetName}:`, error);
-                return null;
-            }
-        }
-
-        // Get sheet data with only non-empty rows
-        function getSheetData(sheetName) {
-            if (!sheetsCache[sheetName]) {
-                console.error(`Sheet "${sheetName}" not found in cache`);
-                return null;
-            }
-
-            const data = sheetsCache[sheetName];
-            
-            if (data.length === 0) {
-                return {
-                    headers: [],
-                    rows: [],
-                    count: 0
-                };
-            }
-
-            const headers = data[0];
-            const allRows = data.slice(1);
-
-            const nonEmptyRows = allRows.filter(row => {
-                return row.some(cell => {
-                    const cellValue = String(cell).trim();
-                    return cellValue !== '' && cellValue !== 'undefined' && cellValue !== 'null';
-                });
-            });
-
-            return {
-                headers: headers,
-                rows: nonEmptyRows,
-                count: nonEmptyRows.length
-            };
-        }
-
-        // Initialize dashboard
-        function initializeDashboard() {
-            console.log('🎨 Initializing dashboard...');
-            
-            const sheets = ['Actives', 'Verified', 'Contract Signed', 'Approved', 'Pending', 'Terminated'];
-            
-            sheets.forEach(sheet => {
-                const sheetId = sheet.toLowerCase().replace(/ /g, '-');
-                const data = getSheetData(sheet);
-                
-                console.log(`Processing ${sheet}:`, data);
-                
-                if (data) {
-                    // Update counts
-                    document.getElementById(`count-${sheetId}`).textContent = data.count;
-                    document.getElementById(`badge-${sheetId}`).textContent = data.count;
-                    
-                    // Populate table
-                    populateTable(sheetId, data);
-                    
-                    // Setup search
-                    setupSearch(sheetId);
-                }
-            });
-
-            // Show dashboard
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('dashboard').classList.remove('hidden');
-            console.log('✅ Dashboard displayed!');
-        }
-
-        function populateTable(sheetId, data) {
-            const table = document.getElementById(`table-${sheetId}`);
-            const thead = table.querySelector('thead');
-            const tbody = table.querySelector('tbody');
-
-            // Create header
-            let headerHTML = '<tr>';
-            data.headers.forEach(header => {
-                headerHTML += `<th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">${escapeHtml(header)}</th>`;
-            });
-            headerHTML += '</tr>';
-            thead.innerHTML = headerHTML;
-
-            // Create rows
-            tbody.innerHTML = '';
-            
-            if (data.rows.length === 0) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="${data.headers.length}" class="px-4 py-8 text-center text-gray-500">No data available</td>`;
-                tbody.appendChild(tr);
-                return;
-            }
-
-            data.rows.forEach((row, index) => {
-                const tr = document.createElement('tr');
-                tr.className = index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
-                
-                row.forEach(cell => {
-                    const td = document.createElement('td');
-                    td.className = 'px-4 py-3 text-sm text-gray-700 border-b border-gray-200';
-                    td.textContent = cell || '-';
-                    tr.appendChild(td);
-                });
-                
-                tbody.appendChild(tr);
-            });
-        }
-
-        function setupSearch(sheetId) {
-            const searchInput = document.getElementById(`search-${sheetId}`);
-            const table = document.getElementById(`table-${sheetId}`);
-            const tbody = table.querySelector('tbody');
-
-            searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                const rows = tbody.querySelectorAll('tr');
-
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    if (text.includes(searchTerm)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-        }
-
-        // Refresh function
-        async function refreshSheets() {
-            console.log('🔄 Refreshing sheets...');
-            sheetsCache = {};
-            document.getElementById('dashboard').classList.add('hidden');
-            await verifyAndFetchSheets();
-        }
-
-        // UI Helper Functions
-        function showLoading(show) {
-            const loadingDiv = document.getElementById('loading');
-            if (show) {
-                loadingDiv.classList.remove('hidden');
-            } else {
-                loadingDiv.classList.add('hidden');
-            }
-        }
-
-        function showError(message, details = '') {
-            const errorDiv = document.getElementById('error');
-            const errorMessage = document.getElementById('error-message');
-            const errorDetails = document.getElementById('error-details');
-            
-            errorMessage.textContent = message;
-            errorDetails.textContent = details;
-            errorDiv.classList.remove('hidden');
-        }
-
-        function hideError() {
-            const errorDiv = document.getElementById('error');
-            if (errorDiv) {
-                errorDiv.classList.add('hidden');
-            }
-        }
-
-        function showSuccess(message) {
-            const successDiv = document.getElementById('success');
-            if (successDiv) {
-                const successMessage = document.getElementById('success-message');
-                successMessage.textContent = message;
-                successDiv.classList.remove('hidden');
-                
-                setTimeout(() => {
-                    successDiv.classList.add('hidden');
-                }, 3000);
-            }
-        }
-
-        function hideSuccess() {
-            const successDiv = document.getElementById('success');
-            if (successDiv) {
-                successDiv.classList.add('hidden');
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-    </script>
-    
+        return json.data;
+      } catch (err) {
+        console.error(`❌ Error fetching ${sheetName}:`, err.message);
+        return [];
+      }
+    }
+  </script>
 </body>
 </html>
