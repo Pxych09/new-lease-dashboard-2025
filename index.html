@@ -23,31 +23,22 @@
 
   <script>
     const scriptUrl = "https://script.google.com/macros/s/AKfycbx9BnScZXouEciOLKTy2Qs9FOx7gYvWXTb_XdmZqguehD4sUZmSjFLfsn75rIO9KGLBIQ/exec";
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(scriptUrl)}`;
 
     async function loadSheets() {
       try {
         document.getElementById("loading").classList.remove("hidden");
-        const response = await fetch(proxyUrl);
+        const response = await fetch(scriptUrl);
         const data = await response.json();
 
-        // Check if contents is valid JSON
-        let parsed;
-        try {
-          parsed = JSON.parse(data.contents);
-        } catch (e) {
-          throw new Error("Invalid JSON from server: " + data.contents.substring(0, 50));
+        if (!data.success) {
+          throw new Error(data.message || "Failed to fetch sheets");
         }
 
-        if (!parsed.success) {
-          throw new Error(parsed.message || "Failed to fetch sheets");
-        }
-
-        console.log("Sheets Data:", parsed);
+        console.log("Sheets Data:", data);
 
         const select = document.getElementById("sheetSelect");
         select.innerHTML = '<option value="">-- Select a Sheet --</option>';
-        parsed.sheetNames.forEach(name => {
+        data.sheetNames.forEach(name => {
           const option = document.createElement("option");
           option.value = name;
           option.textContent = name;
@@ -56,7 +47,7 @@
 
         select.addEventListener("change", loadSheetData);
       } catch (error) {
-        document.getElementById("error").textContent = `Error: ${error.message}`;
+        document.getElementById("error").textContent = `Error: ${error.message}. This may be due to CORS restrictions. Please test locally (e.g., using 'python -m http.server 8000') or contact support for help.`;
         document.getElementById("error").classList.remove("hidden");
         console.error("Error fetching data:", error);
       } finally {
@@ -150,7 +141,7 @@
         });
         */
       } catch (error) {
-        document.getElementById("error").textContent = `Error: ${error.message}`;
+        document.getElementById("error").textContent = `Error: ${error.message}. This may be due to CORS restrictions. Please test locally or contact support for help.`;
         document.getElementById("error").classList.remove("hidden");
         console.error("Error fetching sheet data:", error);
       } finally {
