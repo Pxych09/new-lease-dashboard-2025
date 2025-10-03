@@ -6,91 +6,41 @@
   <title>PB - Lease Management Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 p-6">
-  <h1 class="text-2xl font-bold text-sky-900 mb-4">PB - Lease Management Dashboard</h1>
-  <p class="text-sky-700 mb-6">Fetching sheet data... check your browser console 👇</p>
+<script>
+  async function loadSheets() {
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbx9BnScZXouEciOLKTy2Qs9FOx7gYvWXTb_XdmZqguehD4sUZmSjFLfsn75rIO9KGLBIQ/exec";
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(scriptUrl)}`;
 
-  <script>
-    // API URL (Apps Script Web App endpoint)
-    const API_URL = 'https://script.google.com/macros/s/AKfycbx9BnScZXouEciOLKTy2Qs9FOx7gYvWXTb_XdmZqguehD4sUZmSjFLfsn75rIO9KGLBIQ/exec';
+    try {
+      const response = await fetch(proxyUrl);
+      const data = await response.json();
 
-    // Sheets you want to fetch
-    const REQUIRED_SHEETS = ['Actives', 'Verified', 'Contract Signed', 'Approved', 'Pending', 'Terminated'];
+      // Apps Script JSON is inside "contents"
+      const parsed = JSON.parse(data.contents);
 
-    // Storage for final results
-    let allSheetsData = {};
+      console.log("Sheets Data:", parsed);
 
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('🚀 App initialized');
-      fetchAllSheets();
-    });
+      // Example: Show sheet names in the webpage
+      const list = document.getElementById("sheetList");
+      list.innerHTML = "";
+      parsed.sheetNames.forEach(name => {
+        const li = document.createElement("li");
+        li.textContent = name;
+        list.appendChild(li);
+      });
 
-    // Main function: fetch all sheet data
-    async function fetchAllSheets() {
-      try {
-        console.log('📡 Fetching available sheets...');
-        const sheetListResponse = await fetch(API_URL);
-        const sheetListData = await sheetListResponse.json();
-
-        if (!sheetListData.success) {
-          throw new Error(sheetListData.message || 'Failed to get sheet list');
-        }
-
-        console.log('✅ Available sheets:', sheetListData.sheetNames);
-
-        // Check missing sheets
-        const missing = REQUIRED_SHEETS.filter(s => !sheetListData.sheetNames.includes(s));
-        if (missing.length) {
-          throw new Error(`Missing sheets: ${missing.join(', ')}`);
-        }
-
-        console.log('✅ All required sheets found, now fetching data...');
-
-        // Fetch each sheet and structure results
-        for (const sheetName of REQUIRED_SHEETS) {
-          const rawData = await fetchSheetData(sheetName);
-
-          if (rawData.length > 0) {
-            const headers = rawData[0];
-            const rows = rawData.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
-            allSheetsData[sheetName] = {
-              headers,
-              rows,
-              count: rows.length
-            };
-          } else {
-            allSheetsData[sheetName] = { headers: [], rows: [], count: 0 };
-          }
-        }
-
-        console.log('🎉 All sheets fetched successfully!');
-        console.log('📊 Structured Data:', allSheetsData);
-
-      } catch (err) {
-        console.error('❌ Error fetching sheets:', err.message);
-      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
     }
+  }
 
-    // Fetch single sheet
-    async function fetchSheetData(sheetName) {
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheetName })
-        });
+  // Load on page start
+  window.onload = loadSheets;
+</script>
 
-        const json = await res.json();
-        if (!json.success) {
-          console.error(`⚠️ Failed to fetch ${sheetName}:`, json.error);
-          return [];
-        }
-        return json.data;
-      } catch (err) {
-        console.error(`❌ Error fetching ${sheetName}:`, err.message);
-        return [];
-      }
-    }
-  </script>
+<body>
+  <h2>Available Sheets</h2>
+  <ul id="sheetList"></ul>
 </body>
+
 </html>
